@@ -1,120 +1,76 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Datos predeterminados de la solicitud
-const DEFAULT_USER = {
-  nombre: "DEV28LOGIA",
+// Datos predeterminados para Naturgy
+const TITULAR_NATURGY = {
+  nombre: "Alfa Centauro Centauro",
   dni: "24929048S",
   telefono: "676045344",
-  email: "LEGACYLOGIA333@gmail.com"
+  email: "LEGACY333@gmail.com"
 };
 
-// 1. ENDPOINT: Obtener Dirección y Potencia por CUPS (Simulación de pasarela / Checkout)
-app.post('/api/consultar-cups', async (req, res) => {
-  const { cups, dni } = req.body;
+app.get('/api/consultar-cups', async (req, res) => {
+  const { cups } = req.query;
 
   if (!cups) {
-    return res.status(400).json({ success: false, error: 'El CUPS es obligatorio.' });
+    return res.status(400).json({ error: "Debes proporcionar un CUPS vÃ¡lido." });
   }
 
+  let browser;
   try {
-    // Aquí se conecta con el checkout de Naturgy usando las credenciales predeterminadas
-    const checkoutUrl = 'https://checkout.naturgy.es/?src=hogar&origen=web&nnss=false&id=es&vn=907008091&agv=GRWEBCOL&company=nycli&tipo=luz&sel=E0003&idCal%5B%5D=7be556a2-18f2-4d5e-9f89-de0865bfc026&idCampaign%5B%5D=019e20cb-1206-7e90-8b40-a743e214d065';
-    
-    // Realizamos petición con User-Agent para emular un navegador real
-    const response = await axios.get(checkoutUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-      }
+    browser = await puppeteer.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
-    // En una integración de producción directa con SIPS / Checkout, extraemos los nodos del DOM
-    // Si la pasarela devuelve la dirección estructurada, la leemos mediante cheerio:
-    const $ = cheerio.load(response.data);
+    const page = await browser.newPage();
+
+    // ----------------------------------------------------
+    // 1. OBTENER DIRECCIÃ“N Y UBICACIÃ“N DESDE NATURGY
+    // ----------------------------------------------------
+    const urlNaturgy = "https://checkout.naturgy.es/?src=hogar&origen=web&nnss=false&id=es&vn=907008091&agv=GRWEBCOL&company=nycli&tipo=luz&sel=E0003&idCal%5B%5D=7be556a2-18f2-4d5e-9f89-de0865bfc026&idCampaign%5B%5D=019e20cb-1206-7e90-8b40-a743e214d065";
     
-    // Si la distribuidora responde correctamente al CUPS:
+    await page.goto(urlNaturgy, { waitUntil: 'networkidle2' });
+
+    // AquÃ­ el script interactÃºa con los selectores del formulario de Naturgy
+    // Rellena Nombre, DNI, TelÃ©fono, Correo y finalmente el CUPS
+    // (Ajustar selectores del DOM segÃºn la estructura exacta de Naturgy)
+    
+    let direccionObtenida = "DirecciÃ³n detectada segÃºn CUPS"; // Reemplazar con selector escrapeado
+
+    // ----------------------------------------------------
+    // 2. OBTENER POTENCIA Y CONSUMO DESDE PEPEENERGY
+    // ----------------------------------------------------
+    const urlPepeenergy = "https://www.pepeenergy.com/calculadora-luz";
+    await page.goto(urlPepeenergy, { waitUntil: 'networkidle2' });
+
+    // Rellena el campo del CUPS en Pepeenergy y extrae los valores
+    let potenciaObtenida = "4.6 kW"; // Reemplazar con extracciÃ³n dinÃ¡mica
+    let consumoObtenido = "250 kWh/mes"; // Reemplazar con extracciÃ³n dinÃ¡mica
+
+    await browser.close();
+
+    // Retorna la respuesta a tu interfaz Web
     res.json({
-      success: true,
-      titular: DEFAULT_USER.nombre,
-      cups: cups.toUpperCase(),
-      direccion: "CALLE GRAN VIA 28, MADRID", // Dirección parseada del CUPS
-      potenciaP1: "4.60",
-      potenciaP2: "4.60",
-      distribuidora: obtenerDistribuidora(cups)
+      cups: cups,
+      direccion: direccionObtenida,
+      potencia: potenciaObtenida,
+      consumo: consumoObtenido,
+      titularUsado: TITULAR_NATURGY.nombre
     });
 
   } catch (error) {
-    console.error("Error al consultar el CUPS:", error.message);
-    res.status(500).json({ success: false, error: 'No se pudo obtener la dirección automática del CUPS.' });
+    if (browser) await browser.close();
+    console.error("Error al consultar:", error);
+    res.status(500).json({ error: "Error procesando la consulta del CUPS." });
   }
 });
 
-// 2. ENDPOINT: Consulta Directa de Bono Social en Energía XXI
-app.post('/api/bono-social', async (req, res) => {
-  const { dni, cups } = req.body;
-
-  if (!dni || !cups) {
-    return res.status(400).json({ success: false, error: 'Se requiere DNI y CUPS.' });
-  }
-
-  try {
-    // Consulta a la pasarela pública de Energía XXI
-    const energiaXXIUrl = 'https://www.energiaxxi.com/api/bono-social/check'; 
-    
-    /* 
-       Enviamos los parámetros requeridos por Energía XXI. 
-       Al hacerse desde Node.js, no existe bloqueo de CORS ni del navegador.
-    */
-    const response = await axios.post(energiaXXIUrl, {
-      documentNumber: dni,
-      cups: cups
-    }, {
-      headers: { 'Content-Type': 'application/json' },
-      validateStatus: () => true // Para capturar respuestas 200, 404 u otras
-    });
-
-    if (response.status === 200 && response.data) {
-      res.json({
-        success: true,
-        activo: response.data.hasBonoSocial || false,
-        estadoText: response.data.hasBonoSocial ? "BONO SOCIAL ACTIVO" : "SIN BONO SOCIAL ACTIVO EN ENERGÍA XXI",
-        detalles: response.data
-      });
-    } else {
-      // Si la API de Energía XXI no devuelve objeto directo, notificamos que el suministro está libre
-      res.json({
-        success: true,
-        activo: false,
-        estadoText: "SIN BONO SOCIAL ACTIVO (Elegible para cambio)",
-        detalles: {}
-      });
-    }
-
-  } catch (error) {
-    res.json({
-      success: true,
-      activo: false,
-      estadoText: "SIN BONO SOCIAL ACTIVO / CONSULTA COMPLETADA",
-      detalles: {}
-    });
-  }
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`ðŸš€ Servidor ejecutÃ¡ndose en el puerto ${PORT}`);
 });
-
-function obtenerDistribuidora(cups) {
-  const p = cups.substring(0, 6).toUpperCase();
-  if (p === "ES0031" || p === "ES0022") return "Endesa Distribución (e-distribución)";
-  if (p === "ES0021") return "Iberdrola Distribución (i-DE)";
-  if (p === "ES0026") return "Naturgy (UFD)";
-  if (p === "ES0027") return "EDP / Redexis / E-Redes";
-  if (p === "ES0033") return "Repsol / HC";
-  return "Distribuidora Regional / Otra";
-}
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`?? Servidor Backend corriendo en puerto ${PORT}`));
