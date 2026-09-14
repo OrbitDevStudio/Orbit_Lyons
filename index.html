@@ -123,8 +123,8 @@
   </div>
 
   <script>
-    // Configura aquí la URL de tu servidor backend cuando lo despliegues (ej: Render, Railway o http://localhost:3000)
-    const BACKEND_URL = "https://orbit-lyons.onrender.com"; 
+    // URL del backend en Render
+    const BACKEND_URL = "https://orbit-lyons.onrender.com";
 
     const BANCOS = {
       "0049": "Banco Santander", "0182": "BBVA", "2100": "CaixaBank",
@@ -132,7 +132,19 @@
       "2048": "Unicaja Banco", "3058": "Cajamar", "1490": "Self Bank", "0075": "Banco Popular"
     };
 
+    // ---------------------------------------------------------------------
+    // Helper: convierte un valor de texto a número seguro
+    // ---------------------------------------------------------------------
+    function aNumero(valor, porDefecto) {
+      if (valor === null || valor === undefined) return porDefecto;
+      const limpio = String(valor).replace(',', '.').replace(/[^\d.]/g, '');
+      const n = parseFloat(limpio);
+      return isNaN(n) ? porDefecto : n;
+    }
+
+    // ---------------------------------------------------------------------
     // Validar DNI / NIF
+    // ---------------------------------------------------------------------
     function validarDNI() {
       const dni = document.getElementById("dni").value.trim().toUpperCase();
       const div = document.getElementById("resDNI");
@@ -151,7 +163,9 @@
       div.innerHTML = `❌ DNI/NIF Inválido.`;
     }
 
+    // ---------------------------------------------------------------------
     // Validar IBAN y Banco
+    // ---------------------------------------------------------------------
     function validarIBAN() {
       const iban = document.getElementById("iban").value.replace(/\s+/g, '').toUpperCase();
       const div = document.getElementById("resIBAN");
@@ -166,26 +180,35 @@
       }
     }
 
-    // Identificación local de Distribuidora
+    // ---------------------------------------------------------------------
+    // Identificación local de Distribuidora (según prefijo CUPS)
+    // ---------------------------------------------------------------------
     function analizarCUPSLocal() {
       const cups = document.getElementById("cups").value.trim().toUpperCase();
       const div = document.getElementById("resCUPS");
 
-      if (cups.length >= 6) {
-        const p = cups.substring(0, 6);
-        let dist = "Distribuidora Independiente";
-        if (p === "ES0031" || p === "ES0022") dist = "Endesa Distribución (e-distribución)";
-        else if (p === "ES0021") dist = "Iberdrola Distribución (i-DE)";
-        else if (p === "ES0026") dist = "Naturgy (UFD)";
-        else if (p === "ES0027") dist = "EDP / Redexis / E-Redes";
-        else if (p === "ES0033") dist = "Repsol / HC";
-
-        div.className = "result success";
-        div.innerHTML = `⚡ <strong>Distribuidora:</strong> ${dist}`;
+      if (cups.length < 6) {
+        div.className = "result info";
+        div.innerHTML = "Distribuidora según prefijo CUPS.";
+        return;
       }
+
+      const p = cups.substring(0, 6);
+      let dist = "Distribuidora Independiente";
+
+      if (p === "ES0031") dist = "Endesa Distribución (e-distribución)";
+      else if (p === "ES0021") dist = "Iberdrola Distribución (i-DE)";
+      else if (p === "ES0022" || p === "ES0026") dist = "Naturgy (UFD - Unión Fenosa Distribución)";
+      else if (p === "ES0027") dist = "EDP / Redexis / E-Redes";
+      else if (p === "ES0033") dist = "Repsol / Hidrocantábrico";
+
+      div.className = "result success";
+      div.innerHTML = `⚡ <strong>Distribuidora:</strong> ${dist}`;
     }
 
+    // ---------------------------------------------------------------------
     // Consulta de Bono Social al Backend
+    // ---------------------------------------------------------------------
     async function consultarBonoSocialServidor() {
       const dni = document.getElementById("dni").value.trim();
       const cups = document.getElementById("cups").value.trim();
@@ -205,6 +228,18 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dni, cups })
         });
+
+        // Si el endpoint no existe en el backend, avisamos con claridad
+        if (res.status === 404) {
+          div.className = "result error";
+          div.innerHTML = "⚠️ El endpoint de Bono Social no está disponible en el servidor todavía.";
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         const data = await res.json();
 
         if (data.activo) {
@@ -212,15 +247,18 @@
           div.innerHTML = `⚠️ <span class="badge badge-active">BONO SOCIAL ACTIVO</span> El cliente posee Bono Social activo en Energía XXI.`;
         } else {
           div.className = "result success";
-          div.innerHTML = `✅ <span class="badge badge-inactive">LIBRE</span> ${data.estadoText}`;
+          div.innerHTML = `✅ <span class="badge badge-inactive">LIBRE</span> ${data.estadoText || "No posee Bono Social activo."}`;
         }
       } catch (err) {
         div.className = "result error";
         div.innerHTML = "❌ No se pudo conectar con el servidor backend.";
+        console.error("Error bono social:", err);
       }
     }
 
-    // Obtención de Dirección y Potencia desde el Backend
+    // ---------------------------------------------------------------------
+    // Obtención de Dirección, Potencia y Consumo desde el Backend
+    // ---------------------------------------------------------------------
     async function obtenerDatosServidor() {
       const cups = document.getElementById("cups").value.trim();
       const dni = document.getElementById("dni").value.trim();
@@ -236,35 +274,82 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cups, dni })
         });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         const data = await res.json();
 
-        if (data.success) {
-          document.getElementById("titularObtenido").value = data.titular;
-          document.getElementById("direccion").value = data.direccion;
-          document.getElementById("potencia").value = data.potenciaP1;
-          
-          actualizarMapa();
-          calcularComparativa();
-        } else {
-          alert("Error: " + data.error);
+        if (!data.success) {
+          alert("Error: " + (data.error || "No se pudieron obtener los datos."));
+          return;
         }
+
+        // ---- Titular ----
+        if (data.titular && data.titular !== 'No disponible') {
+          document.getElementById("titularObtenido").value = data.titular;
+        }
+
+        // ---- Dirección ----
+        if (data.direccion && data.direccion !== 'No disponible') {
+          document.getElementById("direccion").value = data.direccion;
+        }
+
+        // ---- Potencia (validando "No disponible") ----
+        if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') {
+          const pot = aNumero(data.potenciaP1, 4.60);
+          document.getElementById("potencia").value = pot;
+        }
+
+        // ---- Consumo anual → mensual (validando "No disponible") ----
+        if (data.consumoAnual && data.consumoAnual !== 'No disponible') {
+          const anual = aNumero(data.consumoAnual, 0);
+          if (anual > 0) {
+            const mensual = Math.round(anual / 12);
+            document.getElementById("consumo").value = mensual;
+          }
+        }
+
+        // ---- Distribuidora devuelta por Naturgy (sobrescribe la local) ----
+        if (data.distribuidora && data.distribuidora !== 'No disponible') {
+          const resCups = document.getElementById("resCUPS");
+          resCups.className = "result success";
+          resCups.innerHTML = `⚡ <strong>Distribuidora (confirmada por Naturgy):</strong> ${data.distribuidora}`;
+        }
+
+        // ---- Avisos si algún campo falló ----
+        if (data.errores && (data.errores.naturgy || data.errores.pepeenergy)) {
+          console.warn("Errores parciales del backend:", data.errores);
+        }
+
+        actualizarMapa();
+        calcularComparativa();
+
       } catch (err) {
-        alert("Asegúrate de que el backend esté ejecutándose.");
+        alert("No se pudo contactar con el backend. Revisa que esté activo.");
+        console.error("Error consultar-cups:", err);
       }
     }
 
+    // ---------------------------------------------------------------------
     // Renderizar Google Maps
+    // ---------------------------------------------------------------------
     function actualizarMapa() {
-      const dir = document.getElementById("direccion").value;
+      const dir = document.getElementById("direccion").value.trim();
       const container = document.getElementById("mapContainer");
 
       if (dir.length > 5) {
         const query = encodeURIComponent(dir);
         container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${query}&t=&z=16&ie=UTF8&iwloc=&output=embed"></iframe>`;
+      } else {
+        container.innerHTML = `<p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa de Google Maps aparecerá aquí al obtener la dirección.</p>`;
       }
     }
 
+    // ---------------------------------------------------------------------
     // Comparador de Precios
+    // ---------------------------------------------------------------------
     const TARIFAS = [
       { comp: "Naturgy (Tarifa Por Uso)", sinIva: 0.1120 },
       { comp: "Repsol (Tarifa Ahorro Plus)", sinIva: 0.1199 },
@@ -274,6 +359,7 @@
 
     function calcularComparativa() {
       const consumo = parseFloat(document.getElementById("consumo").value) || 0;
+      const potencia = parseFloat(document.getElementById("potencia").value) || 0;
       const tbody = document.querySelector("#tablaTarifas tbody");
       tbody.innerHTML = "";
 
@@ -281,7 +367,10 @@
 
       TARIFAS.forEach(t => {
         const conIva = t.sinIva * factorImpuestos;
-        const totalEstimado = consumo * conIva;
+        // Coste energético + término de potencia (0.10 €/kW/día como referencia media)
+        const costeEnergia = consumo * conIva;
+        const costePotencia = potencia * 0.10 * 30;
+        const totalEstimado = costeEnergia + costePotencia;
 
         tbody.innerHTML += `<tr>
           <td><strong>${t.comp}</strong></td>
@@ -292,6 +381,7 @@
       });
     }
 
+    // Cálculo inicial
     calcularComparativa();
   </script>
 </body>
