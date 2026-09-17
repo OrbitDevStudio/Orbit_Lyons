@@ -17,7 +17,7 @@ app.use(express.json());
 // ---------------------------------------------------------------------------
 // ⚠️ CONFIGURACIÓN DE ZENROWS (SOLO REEMPLAZA ESTA LÍNEA) ⚠️
 // ---------------------------------------------------------------------------
-const ZENROWS_API_KEY = 'TU_API_KEY_AQUI'; 
+const ZENROWS_API_KEY = '09400bfe9754e1831ab7fcf6cd5017bb4c5fa044'; 
 // ---------------------------------------------------------------------------
 
 const ZENROWS_CONNECTION_URL = `wss://browser.zenrows.com?apikey=${ZENROWS_API_KEY}&proxy_country=es`;
