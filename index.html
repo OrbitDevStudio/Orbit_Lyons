@@ -34,6 +34,8 @@
     .sum-luz { background: #f4a261; }
     .sum-gas { background: #e76f51; }
     .sum-none { background: #adb5bd; }
+    .btn-naranja { background-color: #e76f51 !important; }
+    .btn-naranja:hover { background-color: #c14a2f !important; }
   </style>
 </head>
 <body>
@@ -66,12 +68,13 @@
     </div>
 
     <div class="card full-width">
-      <h3>📍 Dirección del Suministro y Ubicación (Google Maps)</h3>
+      <h3>📍 Dirección del Suministro y Ubicación</h3>
       <div class="grid-2">
         <div>
-          <button onclick="obtenerDatosServidor()">🔍 BUSCAR DIRECCIÓN Y POTENCIA VÍA BACKEND</button>
+          <button onclick="obtenerDireccion()">📍 BUSCAR DIRECCIÓN Y SUMINISTROS</button>
+          <div id="resDireccion" class="result info">Sin consultar todavía.</div>
 
-          <label for="titularObtenido">Nombre Titular:</label>
+          <label for="titularObtenido" style="margin-top:15px;">Nombre Titular:</label>
           <input type="text" id="titularObtenido" readonly style="font-weight: bold; background: #e9ecef;">
 
           <label for="direccion">Dirección Encontrada:</label>
@@ -91,9 +94,11 @@
     </div>
 
     <div class="card full-width">
-      <h3>📊 Comparativa de Tarifas con Impuestos</h3>
+      <h3>📊 Potencia y Consumo (Pepeenergy)</h3>
+      <button onclick="obtenerConsumo()" class="btn-naranja">📊 CALCULAR POTENCIA Y CONSUMO</button>
+      <div id="resConsumo" class="result info">Sin consultar todavía.</div>
 
-      <div class="grid-2">
+      <div class="grid-2" style="margin-top:15px;">
         <div>
           <label for="potencia">Potencia del Suministro (kW):</label>
           <input type="number" step="0.01" id="potencia" value="4.60" oninput="calcularComparativa()">
@@ -103,6 +108,10 @@
           <input type="number" id="consumo" value="250" oninput="calcularComparativa()">
         </div>
       </div>
+    </div>
+
+    <div class="card full-width">
+      <h3>📊 Comparativa de Tarifas con Impuestos</h3>
 
       <div style="margin-top:10px;">
         <label for="zona">Zona geográfica (impuestos aplicables):</label>
@@ -129,9 +138,7 @@
   </div>
 
   <script>
-    // =====================================================================
     // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
-    // =====================================================================
     const BACKEND_URL = "https://accompanying-consequently-studios-casting.trycloudflare.com";
 
     const BANCOS = {
@@ -286,33 +293,39 @@
       }
     }
 
-    async function obtenerDatosServidor() {
+    // =========================================================================
+    // NUEVO: solo dirección
+    // =========================================================================
+    async function obtenerDireccion() {
       const cups = document.getElementById("cups").value.trim();
-      const dni = document.getElementById("dni").value.trim();
       if (!cups) { alert("Debes ingresar un código CUPS."); return; }
 
+      const resDiv = document.getElementById("resDireccion");
       const sumDiv = document.getElementById("suministros");
-      sumDiv.innerHTML = '<span class="suministro sum-none">⏳ Consultando... (1-2 minutos)</span>';
+      resDiv.className = "result info";
+      resDiv.innerHTML = "⏳ Consultando Naturgy... (30-40 segundos)";
+      sumDiv.innerHTML = '<span class="suministro sum-none">⏳ Consultando...</span>';
 
       try {
-        const res = await fetch(`${BACKEND_URL}/api/consultar-cups`, {
+        const res = await fetch(`${BACKEND_URL}/api/consultar-direccion`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cups, dni })
+          body: JSON.stringify({ cups })
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (!data.success) { alert("Error: " + (data.error || "No se pudieron obtener los datos.")); return; }
+        if (!data.success) {
+          resDiv.className = "result error";
+          resDiv.innerHTML = "❌ " + (data.error || "Error desconocido.");
+          return;
+        }
+
+        resDiv.className = "result success";
+        resDiv.innerHTML = "✅ Datos obtenidos de Naturgy.";
 
         if (data.titular) document.getElementById("titularObtenido").value = data.titular;
-        if (data.direccion && data.direccion !== 'No disponible') document.getElementById("direccion").value = data.direccion;
-
-        if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') {
-          document.getElementById("potencia").value = aNumero(data.potenciaP1, 4.60);
-        }
-        if (data.consumoAnual && data.consumoAnual !== 'No disponible') {
-          const consumo = aNumero(data.consumoAnual, 0);
-          if (consumo > 0) document.getElementById("consumo").value = Math.round(consumo);
+        if (data.direccion && data.direccion !== 'No disponible') {
+          document.getElementById("direccion").value = data.direccion;
         }
 
         sumDiv.innerHTML = '';
@@ -329,10 +342,55 @@
         }
 
         actualizarMapa();
+      } catch (err) {
+        resDiv.className = "result error";
+        resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
+        console.error(err);
+      }
+    }
+
+    // =========================================================================
+    // NUEVO: solo consumo y potencia
+    // =========================================================================
+    async function obtenerConsumo() {
+      const cups = document.getElementById("cups").value.trim();
+      if (!cups) { alert("Debes ingresar un código CUPS."); return; }
+
+      const resDiv = document.getElementById("resConsumo");
+      resDiv.className = "result info";
+      resDiv.innerHTML = "⏳ Consultando Pepeenergy... (40-50 segundos)";
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/consultar-consumo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cups })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success) {
+          resDiv.className = "result error";
+          resDiv.innerHTML = "❌ " + (data.error || "Error desconocido.");
+          return;
+        }
+
+        let pot = data.potenciaP1;
+        let cons = data.consumoAnual;
+
+        if (pot && pot !== 'No disponible') {
+          document.getElementById("potencia").value = aNumero(pot, 4.60);
+        }
+        if (cons && cons !== 'No disponible') {
+          document.getElementById("consumo").value = Math.round(aNumero(cons, 0));
+        }
+
+        resDiv.className = "result success";
+        resDiv.innerHTML = `✅ Potencia: <strong>${pot} kW</strong> | Consumo: <strong>${cons} kWh</strong>`;
+
         calcularComparativa();
       } catch (err) {
-        sumDiv.innerHTML = '<span class="suministro sum-none">Error</span>';
-        alert("No se pudo contactar con el backend. Verifica túnel y VPN.");
+        resDiv.className = "result error";
+        resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
         console.error(err);
       }
     }
