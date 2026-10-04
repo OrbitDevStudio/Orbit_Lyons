@@ -147,4 +147,256 @@
       "2056": "Colonya - Caixa d'Estalvis de Pollensa", "2085": "Ibercaja Banco",
       "2095": "Kutxabank", "2103": "Unicaja Banco",
       "3025": "Caixa de Crèdit dels Enginyers", "3059": "Caja de Ahorros de Asturias",
-      "
+      "3001": "Caja Rural de Almendralejo", "3005": "Caja Rural Central",
+      "3007": "Caja Rural de Gijón", "3008": "Caja Rural de Navarra",
+      "3009": "Caja Rural de Extremadura", "3016": "Caja Rural de Salamanca",
+      "3017": "Caja Rural de Soria", "3023": "Caja Rural de Granada",
+      "3035": "Caja Laboral Popular", "3190": "Caja Rural de Albacete, Ciudad Real y Cuenca",
+      "0030": "Banesto (absorbido por Santander)",
+      "0072": "Banco Pastor (absorbido por Popular)",
+      "0229": "Banco Popular-E (absorbido)",
+      "0238": "Banco Pastor (absorbido por Popular)",
+      "0487": "Banco Mare Nostrum (absorbido por Bankia)",
+      "0138": "Bankoa (absorbido por Abanca)",
+      "0009": "Finanzia Banco de Crédito (absorbido por BBVA)"
+    };
+
+    // =====================================================================
+    // TARIFAS DE COMPARADOR (precios en €/kWh sin impuestos)
+    // =====================================================================
+    const TARIFAS = [
+      { comp: "Naturgy (Tarifa Por Uso)", sinIva: 0.1120 },
+      { comp: "Repsol (Tarifa Ahorro Plus)", sinIva: 0.1199 },
+      { comp: "Iberdrola (Plan Estable)", sinIva: 0.1433 },
+      { comp: "Endesa (Tarifa Luz 24 Horas)", sinIva: 0.1443 },
+      { comp: "Factor Energia (Precio Fijo)", sinIva: 0.1180 },
+      { comp: "TotalEnergies (A tu aire luz siempre)", sinIva: 0.0999 },
+      { comp: "Octopus Energy (Relax)", sinIva: 0.0980 }
+    ];
+
+    function aNumero(valor, porDefecto) {
+      if (valor === null || valor === undefined) return porDefecto;
+      const limpio = String(valor).replace(',', '.').replace(/[^\d.]/g, '');
+      const n = parseFloat(limpio);
+      return isNaN(n) ? porDefecto : n;
+    }
+
+    function validarDNI() {
+      const dni = document.getElementById("dni").value.trim().toUpperCase();
+      const div = document.getElementById("resDNI");
+      const letras = "TRWAGMYFPDXBNJZSQVHLCKE";
+      if (/^[0-9]{8}[A-Z]$/.test(dni)) {
+        if (dni.substring(8, 9) === letras[dni.substring(0, 8) % 23]) {
+          div.className = "result success";
+          div.innerHTML = `✅ DNI/NIF Válido.`;
+          return;
+        }
+      }
+      div.className = "result error";
+      div.innerHTML = `❌ DNI/NIF Inválido.`;
+    }
+
+    function validarIBANChecksum(iban) {
+      const ibanReordenado = iban.substring(4) + iban.substring(0, 4);
+      let ibanNumerico = '';
+      for (const c of ibanReordenado) {
+        if (isNaN(c)) {
+          ibanNumerico += (c.charCodeAt(0) - 55).toString();
+        } else {
+          ibanNumerico += c;
+        }
+      }
+      try {
+        return BigInt(ibanNumerico) % 97n === 1n;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function validarIBAN() {
+      const iban = document.getElementById("iban").value.replace(/\s+/g, '').toUpperCase();
+      const div = document.getElementById("resIBAN");
+
+      if (iban.length !== 24) {
+        div.className = "result error";
+        div.innerHTML = `❌ IBAN Incorrecto (Debe tener 24 caracteres).`;
+        return;
+      }
+      if (!iban.startsWith("ES")) {
+        div.className = "result error";
+        div.innerHTML = `❌ IBAN Incorrecto (Debe empezar por ES).`;
+        return;
+      }
+      if (!validarIBANChecksum(iban)) {
+        div.className = "result error";
+        div.innerHTML = `❌ IBAN Inválido (checksum incorrecto).`;
+        return;
+      }
+      const codEntidad = iban.substring(4, 8);
+      const banco = BANCOS[codEntidad] || `Entidad no registrada (código ${codEntidad})`;
+      div.className = "result success";
+      div.innerHTML = `✅ IBAN Correcto | 🏦 <strong>${banco}</strong>`;
+    }
+
+    function analizarCUPSLocal() {
+      const cups = document.getElementById("cups").value.trim().toUpperCase();
+      const div = document.getElementById("resCUPS");
+      if (cups.length < 6) {
+        div.className = "result info";
+        div.innerHTML = "Distribuidora según prefijo CUPS.";
+        return;
+      }
+      const p = cups.substring(0, 6);
+      let dist = "Distribuidora Independiente";
+      if (p === "ES0031") dist = "Endesa Distribución (e-distribución)";
+      else if (p === "ES0021") dist = "Iberdrola Distribución (i-DE)";
+      else if (p === "ES0022" || p === "ES0026") dist = "Naturgy (UFD)";
+      else if (p === "ES0027") dist = "EDP / Redexis / E-Redes";
+      else if (p === "ES0033") dist = "Repsol / Hidrocantábrico";
+      div.className = "result success";
+      div.innerHTML = `⚡ <strong>Distribuidora:</strong> ${dist}`;
+    }
+
+    async function consultarBonoSocialServidor() {
+      const dni = document.getElementById("dni").value.trim();
+      const cups = document.getElementById("cups").value.trim();
+      const div = document.getElementById("resBono");
+      if (!dni || !cups) { alert("Introduce el DNI y el CUPS antes de verificar."); return; }
+
+      div.className = "result info";
+      div.innerHTML = "⏳ Verificando en Energía XXI... (puede tardar 30-60 segundos)";
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/bono-social`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni, cups })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.activo) {
+          div.className = "result error";
+          div.innerHTML = `⚠️ <span class="badge badge-active">BONO SOCIAL ACTIVO</span> ${data.estadoText}`;
+        } else {
+          div.className = "result success";
+          div.innerHTML = `✅ <span class="badge badge-inactive">LIBRE</span> ${data.estadoText || "No posee Bono Social activo."}`;
+        }
+      } catch (err) {
+        div.className = "result error";
+        div.innerHTML = "❌ No se pudo conectar con el backend.";
+        console.error(err);
+      }
+    }
+
+    async function obtenerDatosServidor() {
+      const cups = document.getElementById("cups").value.trim();
+      const dni = document.getElementById("dni").value.trim();
+      if (!cups) { alert("Debes ingresar un código CUPS."); return; }
+
+      const sumDiv = document.getElementById("suministros");
+      sumDiv.innerHTML = '<span class="suministro sum-none">⏳ Consultando... (1-2 minutos)</span>';
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/consultar-cups`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cups, dni })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success) { alert("Error: " + (data.error || "No se pudieron obtener los datos.")); return; }
+
+        if (data.titular) document.getElementById("titularObtenido").value = data.titular;
+        if (data.direccion && data.direccion !== 'No disponible') document.getElementById("direccion").value = data.direccion;
+
+        // Potencia y consumo reales del cliente
+        if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') {
+          document.getElementById("potencia").value = aNumero(data.potenciaP1, 4.60);
+        }
+        if (data.consumoAnual && data.consumoAnual !== 'No disponible') {
+          const consumo = aNumero(data.consumoAnual, 0);
+          if (consumo > 0) document.getElementById("consumo").value = Math.round(consumo);
+        }
+
+        // Suministros
+        sumDiv.innerHTML = '';
+        if (data.tieneLuz) {
+          let textoLuz = '💡 LUZ';
+          if (data.cupsLuz) textoLuz += ` (${data.cupsLuz})`;
+          sumDiv.innerHTML += `<span class="suministro sum-luz">${textoLuz}</span>`;
+        }
+        if (data.tieneGas) {
+          let textoGas = '🔥 GAS';
+          if (data.cupsGas) textoGas += ` (${data.cupsGas})`;
+          sumDiv.innerHTML += `<span class="suministro sum-gas">${textoGas}</span>`;
+        }
+        if (!data.tieneLuz && !data.tieneGas) {
+          sumDiv.innerHTML = '<span class="suministro sum-none">Sin suministros detectados</span>';
+        }
+
+        if (data.distribuidora && data.distribuidora !== 'No disponible') {
+          const resCups = document.getElementById("resCUPS");
+          resCups.className = "result success";
+          resCups.innerHTML = `⚡ <strong>Distribuidora:</strong> ${data.distribuidora}`;
+        }
+
+        actualizarMapa();
+        calcularComparativa();
+      } catch (err) {
+        sumDiv.innerHTML = '<span class="suministro sum-none">Error</span>';
+        alert("No se pudo contactar con el backend. Verifica túnel y VPN.");
+        console.error(err);
+      }
+    }
+
+    function actualizarMapa() {
+      const dir = document.getElementById("direccion").value.trim();
+      const container = document.getElementById("mapContainer");
+      if (dir.length > 5) {
+        container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${encodeURIComponent(dir)}&t=&z=16&ie=UTF8&iwloc=&output=embed"></iframe>`;
+      } else {
+        container.innerHTML = `<p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa aparecerá aquí al obtener la dirección.</p>`;
+      }
+    }
+
+    function calcularComparativa() {
+      const consumo = parseFloat(document.getElementById("consumo").value) || 0;
+      const potencia = parseFloat(document.getElementById("potencia").value) || 0;
+      const zona = document.getElementById("zona") ? document.getElementById("zona").value : "peninsula";
+      const tbody = document.querySelector("#tablaTarifas tbody");
+      tbody.innerHTML = "";
+
+      let factorImpuestos;
+      let etiquetaImpuestos;
+
+      if (zona === "canarias") {
+        factorImpuestos = 1 + 0.07;
+        etiquetaImpuestos = "IGIC 7%";
+      } else if (zona === "ceuta_melilla") {
+        factorImpuestos = 1 + 0.04;
+        etiquetaImpuestos = "IPSI 4%";
+      } else {
+        factorImpuestos = 1 + 0.21 + 0.0511;
+        etiquetaImpuestos = "IVA 21% + IEE 5,11%";
+      }
+
+      const thImp = document.getElementById("thImpuestos");
+      if (thImp) thImp.textContent = `Precio kWh (${etiquetaImpuestos})`;
+
+      TARIFAS.forEach(t => {
+        const conIva = t.sinIva * factorImpuestos;
+        const total = (consumo * conIva) + (potencia * 0.10 * 30);
+        tbody.innerHTML += `<tr>
+          <td><strong>${t.comp}</strong></td>
+          <td>${t.sinIva.toFixed(4)} €/kWh</td>
+          <td>${conIva.toFixed(4)} €/kWh</td>
+          <td><strong>${total.toFixed(2)} €/mes</strong></td>
+        </tr>`;
+      });
+    }
+
+    calcularComparativa();
+  </script>
+</body>
+</html>
