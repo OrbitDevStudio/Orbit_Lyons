@@ -29,7 +29,7 @@
     .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; font-weight: bold; }
     .badge-active { background: #e63946; }
     .badge-inactive { background: #2a9d8f; }
-    .suministros { display: flex; gap: 8px; margin-top: 8px; }
+    .suministros { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .suministro { padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; }
     .sum-luz { background: #f4a261; }
     .sum-gas { background: #e76f51; }
@@ -123,15 +123,32 @@
     // =====================================================================
     const BACKEND_URL = "https://accompanying-consequently-studios-casting.trycloudflare.com";
 
+    // Diccionario ampliado de entidades bancarias
     const BANCOS = {
       "0049": "Banco Santander", "0182": "BBVA", "2100": "CaixaBank",
       "0081": "Banco Sabadell", "2080": "Abanca", "0128": "Bankinter",
       "2048": "Unicaja Banco", "3058": "Cajamar", "1490": "Self Bank", "0075": "Banco Popular",
-      "0019": "Deutsche Bank", "0061": "Banca March", "0186": "Banco Mediolanum",
-      "0198": "Banco Cooperativo Español", "0211": "EBN Banco", "0224": "Banco Inversis",
-      "1465": "ING", "1491": "Triodos Bank", "1544": "Banco Caminos", "1550": "Banco BIC",
-      "1560": "Andbank", "2000": "Banco de Sabadell", "2038": "Bankia",
-      "2056": "Caja Laboral", "3025": "Caja de Ingenieros", "3059": "Caja de Ahorros de Asturias"
+      "0019": "Deutsche Bank", "0061": "Banca March", "0078": "Banca Pueyo",
+      "0186": "Banco Mediolanum", "0198": "Banco Cooperativo Español",
+      "0216": "Targobank", "0234": "Banco Caminos", "0235": "Banco Pichincha España",
+      "0237": "Cajasur Banco", "0239": "EVO Banco (absorbido por Bankinter)",
+      "1465": "ING", "1491": "Triodos Bank", "1550": "Banca Popolare Etica",
+      "1544": "Andbank España", "2000": "Cecabank", "2038": "Bankia",
+      "2056": "Colonya - Caixa d'Estalvis de Pollensa", "2085": "Ibercaja Banco",
+      "2095": "Kutxabank", "2103": "Unicaja Banco",
+      "3025": "Caixa de Crèdit dels Enginyers", "3059": "Caja de Ahorros de Asturias",
+      "3001": "Caja Rural de Almendralejo", "3005": "Caja Rural Central",
+      "3007": "Caja Rural de Gijón", "3008": "Caja Rural de Navarra",
+      "3009": "Caja Rural de Extremadura", "3016": "Caja Rural de Salamanca",
+      "3017": "Caja Rural de Soria", "3023": "Caja Rural de Granada",
+      "3035": "Caja Laboral Popular", "3190": "Caja Rural de Albacete, Ciudad Real y Cuenca",
+      "0030": "Banesto (absorbido por Santander)",
+      "0072": "Banco Pastor (absorbido por Popular)",
+      "0229": "Banco Popular-E (absorbido)",
+      "0238": "Banco Pastor (absorbido por Popular)",
+      "0487": "Banco Mare Nostrum (absorbido por Bankia)",
+      "0138": "Bankoa (absorbido por Abanca)",
+      "0009": "Finanzia Banco de Crédito (absorbido por BBVA)"
     };
 
     function aNumero(valor, porDefecto) {
@@ -156,17 +173,46 @@
       div.innerHTML = `❌ DNI/NIF Inválido.`;
     }
 
+    function validarIBANChecksum(iban) {
+      const ibanReordenado = iban.substring(4) + iban.substring(0, 4);
+      let ibanNumerico = '';
+      for (const c of ibanReordenado) {
+        if (isNaN(c)) {
+          ibanNumerico += (c.charCodeAt(0) - 55).toString();
+        } else {
+          ibanNumerico += c;
+        }
+      }
+      try {
+        return BigInt(ibanNumerico) % 97n === 1n;
+      } catch (e) {
+        return false;
+      }
+    }
+
     function validarIBAN() {
       const iban = document.getElementById("iban").value.replace(/\s+/g, '').toUpperCase();
       const div = document.getElementById("resIBAN");
-      if (iban.length === 24 && iban.startsWith("ES")) {
-        const banco = BANCOS[iban.substring(4, 8)] || "Entidad Bancaria Registrada";
-        div.className = "result success";
-        div.innerHTML = `✅ IBAN Correcto | 🏦 <strong>${banco}</strong>`;
-      } else {
+
+      if (iban.length !== 24) {
         div.className = "result error";
-        div.innerHTML = `❌ IBAN Incorrecto (Debe empezar por ES y tener 24 dígitos).`;
+        div.innerHTML = `❌ IBAN Incorrecto (Debe tener 24 caracteres).`;
+        return;
       }
+      if (!iban.startsWith("ES")) {
+        div.className = "result error";
+        div.innerHTML = `❌ IBAN Incorrecto (Debe empezar por ES).`;
+        return;
+      }
+      if (!validarIBANChecksum(iban)) {
+        div.className = "result error";
+        div.innerHTML = `❌ IBAN Inválido (checksum incorrecto).`;
+        return;
+      }
+      const codEntidad = iban.substring(4, 8);
+      const banco = BANCOS[codEntidad] || `Entidad no registrada (código ${codEntidad})`;
+      div.className = "result success";
+      div.innerHTML = `✅ IBAN Correcto | 🏦 <strong>${banco}</strong>`;
     }
 
     function analizarCUPSLocal() {
@@ -241,11 +287,25 @@
         if (data.titular) document.getElementById("titularObtenido").value = data.titular;
         if (data.direccion && data.direccion !== 'No disponible') document.getElementById("direccion").value = data.direccion;
         if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') document.getElementById("potencia").value = aNumero(data.potenciaP1, 4.60);
+        if (data.consumoAnual && data.consumoAnual !== 'No disponible') {
+          const anual = aNumero(data.consumoAnual, 0);
+          if (anual > 0) document.getElementById("consumo").value = Math.round(anual / 12);
+        }
 
         sumDiv.innerHTML = '';
-        if (data.tieneLuz) sumDiv.innerHTML += '<span class="suministro sum-luz">💡 LUZ</span>';
-        if (data.tieneGas) sumDiv.innerHTML += '<span class="suministro sum-gas">🔥 GAS</span>';
-        if (!data.tieneLuz && !data.tieneGas) sumDiv.innerHTML = '<span class="suministro sum-none">Sin suministros detectados</span>';
+        if (data.tieneLuz) {
+          let textoLuz = '💡 LUZ';
+          if (data.cupsLuz) textoLuz += ` (${data.cupsLuz})`;
+          sumDiv.innerHTML += `<span class="suministro sum-luz">${textoLuz}</span>`;
+        }
+        if (data.tieneGas) {
+          let textoGas = '🔥 GAS';
+          if (data.cupsGas) textoGas += ` (${data.cupsGas})`;
+          sumDiv.innerHTML += `<span class="suministro sum-gas">${textoGas}</span>`;
+        }
+        if (!data.tieneLuz && !data.tieneGas) {
+          sumDiv.innerHTML = '<span class="suministro sum-none">Sin suministros detectados</span>';
+        }
 
         if (data.distribuidora && data.distribuidora !== 'No disponible') {
           const resCups = document.getElementById("resCUPS");
