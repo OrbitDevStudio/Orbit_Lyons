@@ -121,7 +121,7 @@
     // =====================================================================
     // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
     // =====================================================================
-    const BACKEND_URL = "https://billy-affordable-completed-walnut.trycloudflare.com";
+    const BACKEND_URL = "https://accompanying-consequently-studios-casting.trycloudflare.com";
 
     const BANCOS = {
       "0049": "Banco Santander", "0182": "BBVA", "2100": "CaixaBank",
@@ -242,13 +242,11 @@
         if (data.direccion && data.direccion !== 'No disponible') document.getElementById("direccion").value = data.direccion;
         if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') document.getElementById("potencia").value = aNumero(data.potenciaP1, 4.60);
 
-        // --- Suministros ---
         sumDiv.innerHTML = '';
         if (data.tieneLuz) sumDiv.innerHTML += '<span class="suministro sum-luz">💡 LUZ</span>';
         if (data.tieneGas) sumDiv.innerHTML += '<span class="suministro sum-gas">🔥 GAS</span>';
         if (!data.tieneLuz && !data.tieneGas) sumDiv.innerHTML = '<span class="suministro sum-none">Sin suministros detectados</span>';
 
-        // Distribuidora
         if (data.distribuidora && data.distribuidora !== 'No disponible') {
           const resCups = document.getElementById("resCUPS");
           resCups.className = "result success";
