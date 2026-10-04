@@ -29,7 +29,7 @@
     .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; font-weight: bold; }
     .badge-active { background: #e63946; }
     .badge-inactive { background: #2a9d8f; }
-    .suministros { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .suministros { display: flex; gap: 8px; margin-top: 8px; }
     .suministro { padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; }
     .sum-luz { background: #f4a261; }
     .sum-gas { background: #e76f51; }
@@ -112,7 +112,6 @@
 
     <div class="card full-width">
       <h3>📊 Comparativa de Tarifas con Impuestos</h3>
-
       <div style="margin-top:10px;">
         <label for="zona">Zona geográfica (impuestos aplicables):</label>
         <select id="zona" onchange="calcularComparativa()">
@@ -138,7 +137,6 @@
   </div>
 
   <script>
-    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
     const BACKEND_URL = "https://accompanying-consequently-studios-casting.trycloudflare.com";
 
     const BANCOS = {
@@ -220,7 +218,6 @@
     function validarIBAN() {
       const iban = document.getElementById("iban").value.replace(/\s+/g, '').toUpperCase();
       const div = document.getElementById("resIBAN");
-
       if (iban.length !== 24) {
         div.className = "result error";
         div.innerHTML = `❌ IBAN Incorrecto (Debe tener 24 caracteres).`;
@@ -293,9 +290,6 @@
       }
     }
 
-    // =========================================================================
-    // NUEVO: solo dirección
-    // =========================================================================
     async function obtenerDireccion() {
       const cups = document.getElementById("cups").value.trim();
       if (!cups) { alert("Debes ingresar un código CUPS."); return; }
@@ -349,9 +343,6 @@
       }
     }
 
-    // =========================================================================
-    // NUEVO: solo consumo y potencia
-    // =========================================================================
     async function obtenerConsumo() {
       const cups = document.getElementById("cups").value.trim();
       if (!cups) { alert("Debes ingresar un código CUPS."); return; }
