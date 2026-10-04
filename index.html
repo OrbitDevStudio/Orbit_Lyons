@@ -161,9 +161,6 @@
       "0009": "Finanzia Banco de Crédito (absorbido por BBVA)"
     };
 
-    // =====================================================================
-    // TARIFAS DE COMPARADOR (precios en €/kWh sin impuestos)
-    // =====================================================================
     const TARIFAS = [
       { comp: "Naturgy (Tarifa Por Uso)", sinIva: 0.1120 },
       { comp: "Repsol (Tarifa Ahorro Plus)", sinIva: 0.1199 },
@@ -310,7 +307,6 @@
         if (data.titular) document.getElementById("titularObtenido").value = data.titular;
         if (data.direccion && data.direccion !== 'No disponible') document.getElementById("direccion").value = data.direccion;
 
-        // Potencia y consumo reales del cliente
         if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') {
           document.getElementById("potencia").value = aNumero(data.potenciaP1, 4.60);
         }
@@ -319,18 +315,9 @@
           if (consumo > 0) document.getElementById("consumo").value = Math.round(consumo);
         }
 
-        // Suministros
         sumDiv.innerHTML = '';
-        if (data.tieneLuz) {
-          let textoLuz = '💡 LUZ';
-          if (data.cupsLuz) textoLuz += ` (${data.cupsLuz})`;
-          sumDiv.innerHTML += `<span class="suministro sum-luz">${textoLuz}</span>`;
-        }
-        if (data.tieneGas) {
-          let textoGas = '🔥 GAS';
-          if (data.cupsGas) textoGas += ` (${data.cupsGas})`;
-          sumDiv.innerHTML += `<span class="suministro sum-gas">${textoGas}</span>`;
-        }
+        if (data.tieneLuz) sumDiv.innerHTML += '<span class="suministro sum-luz">💡 LUZ</span>';
+        if (data.tieneGas) sumDiv.innerHTML += '<span class="suministro sum-gas">🔥 GAS</span>';
         if (!data.tieneLuz && !data.tieneGas) {
           sumDiv.innerHTML = '<span class="suministro sum-none">Sin suministros detectados</span>';
         }
