@@ -5,14 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestor Unificado de Ventas - Luz y Gas España</title>
   <style>
-    :root {
-      --primary: #0d3b66;
-      --secondary: #0077b6;
-      --bg: #f4f7f6;
-      --card-bg: #ffffff;
-      --text: #2b2d42;
-    }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: var(--text); }
+    :root { --primary: #0d3b66; --secondary: #0077b6; --bg: #f4f7f6; --card-bg: #fff; --text: #2b2d42; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); }
     .header { text-align: center; margin-bottom: 20px; }
     .header h1 { color: var(--primary); margin: 0; font-size: 26px; }
     .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
@@ -24,17 +18,22 @@
     button { background-color: var(--secondary); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 12px; transition: background 0.2s; }
     button:hover { background-color: var(--primary); }
     .result { margin-top: 10px; padding: 10px; border-radius: 5px; font-size: 13px; font-weight: 600; }
-    .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    .info { background-color: #e2e3e5; color: #383d41; }
+    .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .info { background: #e2e3e5; color: #383d41; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
     th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background-color: #f8f9fa; color: var(--primary); }
+    th { background: #f8f9fa; color: var(--primary); }
     iframe { width: 100%; height: 280px; border: 0; border-radius: 6px; margin-top: 10px; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .badge { padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; font-weight: bold; }
-    .badge-active { background-color: #e63946; }
-    .badge-inactive { background-color: #2a9d8f; }
+    .badge-active { background: #e63946; }
+    .badge-inactive { background: #2a9d8f; }
+    .suministros { display: flex; gap: 8px; margin-top: 8px; }
+    .suministro { padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; }
+    .sum-luz { background: #f4a261; }
+    .sum-gas { background: #e76f51; }
+    .sum-none { background: #adb5bd; }
   </style>
 </head>
 <body>
@@ -47,7 +46,6 @@
 
     <div class="card">
       <h3>👤 Verificación de Cliente (DNI & IBAN)</h3>
-      
       <label for="dni">DNI / NIF / NIE:</label>
       <input type="text" id="dni" placeholder="Ej: 24929048S" oninput="validarDNI()">
       <div id="resDNI" class="result info">Ingresa DNI para validar.</div>
@@ -58,8 +56,7 @@
     </div>
 
     <div class="card">
-      <h3>🔌 Datos de CUPS y Bono Social (Energía XXI)</h3>
-      
+      <h3>🔌 Datos de CUPS y Bono Social</h3>
       <label for="cups">Código CUPS:</label>
       <input type="text" id="cups" placeholder="Ej: ES0031..." oninput="analizarCUPSLocal()">
       <div id="resCUPS" class="result info">Distribuidora según prefijo CUPS.</div>
@@ -73,16 +70,21 @@
       <div class="grid-2">
         <div>
           <button onclick="obtenerDatosServidor()">🔍 BUSCAR DIRECCIÓN Y POTENCIA VÍA BACKEND</button>
-          
-          <label for="titularObtenido">Nombre Titular (En Mayúsculas):</label>
+
+          <label for="titularObtenido">Nombre Titular:</label>
           <input type="text" id="titularObtenido" readonly style="font-weight: bold; background: #e9ecef;">
 
           <label for="direccion">Dirección Encontrada:</label>
           <input type="text" id="direccion" placeholder="Se rellenará automáticamente..." onchange="actualizarMapa()">
+
+          <label>Suministros detectados:</label>
+          <div id="suministros" class="suministros">
+            <span class="suministro sum-none">Sin consultar</span>
+          </div>
         </div>
         <div>
           <div id="mapContainer">
-            <p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa de Google Maps aparecerá aquí al obtener la dirección.</p>
+            <p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa aparecerá aquí al obtener la dirección.</p>
           </div>
         </div>
       </div>
@@ -100,11 +102,10 @@
           <input type="number" id="consumo" value="250" oninput="calcularComparativa()">
         </div>
       </div>
-
       <table id="tablaTarifas">
         <thead>
           <tr>
-            <th>Compañía / Tarifa Referencia</th>
+            <th>Compañía / Tarifa</th>
             <th>Precio kWh (Sin IVA)</th>
             <th>Precio kWh (Con IVA + IEE)</th>
             <th>Coste Estimado Mensual</th>
@@ -118,13 +119,10 @@
 
   <script>
     // =====================================================================
-    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE
-    // Cada vez que reinicies Cloudflare y te dé una URL distinta,
-    // cambia esta línea y haz commit en GitHub.
+    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
     // =====================================================================
     const BACKEND_URL = "https://billy-affordable-completed-walnut.trycloudflare.com";
 
-    // Diccionario de entidades bancarias
     const BANCOS = {
       "0049": "Banco Santander", "0182": "BBVA", "2100": "CaixaBank",
       "0081": "Banco Sabadell", "2080": "Abanca", "0128": "Bankinter",
@@ -148,9 +146,7 @@
       const div = document.getElementById("resDNI");
       const letras = "TRWAGMYFPDXBNJZSQVHLCKE";
       if (/^[0-9]{8}[A-Z]$/.test(dni)) {
-        const num = dni.substring(0, 8);
-        const letra = dni.substring(8, 9);
-        if (letra === letras[num % 23]) {
+        if (dni.substring(8, 9) === letras[dni.substring(0, 8) % 23]) {
           div.className = "result success";
           div.innerHTML = `✅ DNI/NIF Válido.`;
           return;
@@ -164,8 +160,7 @@
       const iban = document.getElementById("iban").value.replace(/\s+/g, '').toUpperCase();
       const div = document.getElementById("resIBAN");
       if (iban.length === 24 && iban.startsWith("ES")) {
-        const codEntidad = iban.substring(4, 8);
-        const banco = BANCOS[codEntidad] || "Entidad Bancaria Registrada";
+        const banco = BANCOS[iban.substring(4, 8)] || "Entidad Bancaria Registrada";
         div.className = "result success";
         div.innerHTML = `✅ IBAN Correcto | 🏦 <strong>${banco}</strong>`;
       } else {
@@ -186,7 +181,7 @@
       let dist = "Distribuidora Independiente";
       if (p === "ES0031") dist = "Endesa Distribución (e-distribución)";
       else if (p === "ES0021") dist = "Iberdrola Distribución (i-DE)";
-      else if (p === "ES0022" || p === "ES0026") dist = "Naturgy (UFD - Unión Fenosa Distribución)";
+      else if (p === "ES0022" || p === "ES0026") dist = "Naturgy (UFD)";
       else if (p === "ES0027") dist = "EDP / Redexis / E-Redes";
       else if (p === "ES0033") dist = "Repsol / Hidrocantábrico";
       div.className = "result success";
@@ -197,14 +192,10 @@
       const dni = document.getElementById("dni").value.trim();
       const cups = document.getElementById("cups").value.trim();
       const div = document.getElementById("resBono");
-
-      if (!dni || !cups) {
-        alert("Introduce el DNI y el CUPS arriba antes de verificar el Bono Social.");
-        return;
-      }
+      if (!dni || !cups) { alert("Introduce el DNI y el CUPS antes de verificar."); return; }
 
       div.className = "result info";
-      div.innerHTML = "⏳ Verificando en Energía XXI...";
+      div.innerHTML = "⏳ Verificando en Energía XXI... (puede tardar 30-60 segundos)";
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/bono-social`, {
@@ -224,8 +215,8 @@
         }
       } catch (err) {
         div.className = "result error";
-        div.innerHTML = "❌ No se pudo conectar con el servidor backend.";
-        console.error("Error bono social:", err);
+        div.innerHTML = "❌ No se pudo conectar con el backend.";
+        console.error(err);
       }
     }
 
@@ -233,6 +224,9 @@
       const cups = document.getElementById("cups").value.trim();
       const dni = document.getElementById("dni").value.trim();
       if (!cups) { alert("Debes ingresar un código CUPS."); return; }
+
+      const sumDiv = document.getElementById("suministros");
+      sumDiv.innerHTML = '<span class="suministro sum-none">⏳ Consultando...</span>';
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/consultar-cups`, {
@@ -244,24 +238,29 @@
         const data = await res.json();
         if (!data.success) { alert("Error: " + (data.error || "No se pudieron obtener los datos.")); return; }
 
-        if (data.titular && data.titular !== 'No disponible') document.getElementById("titularObtenido").value = data.titular;
+        if (data.titular) document.getElementById("titularObtenido").value = data.titular;
         if (data.direccion && data.direccion !== 'No disponible') document.getElementById("direccion").value = data.direccion;
         if (data.potenciaP1 && data.potenciaP1 !== 'No disponible') document.getElementById("potencia").value = aNumero(data.potenciaP1, 4.60);
-        if (data.consumoAnual && data.consumoAnual !== 'No disponible') {
-          const anual = aNumero(data.consumoAnual, 0);
-          if (anual > 0) document.getElementById("consumo").value = Math.round(anual / 12);
-        }
+
+        // --- Suministros ---
+        sumDiv.innerHTML = '';
+        if (data.tieneLuz) sumDiv.innerHTML += '<span class="suministro sum-luz">💡 LUZ</span>';
+        if (data.tieneGas) sumDiv.innerHTML += '<span class="suministro sum-gas">🔥 GAS</span>';
+        if (!data.tieneLuz && !data.tieneGas) sumDiv.innerHTML = '<span class="suministro sum-none">Sin suministros detectados</span>';
+
+        // Distribuidora
         if (data.distribuidora && data.distribuidora !== 'No disponible') {
           const resCups = document.getElementById("resCUPS");
           resCups.className = "result success";
-          resCups.innerHTML = `⚡ <strong>Distribuidora (confirmada):</strong> ${data.distribuidora}`;
+          resCups.innerHTML = `⚡ <strong>Distribuidora:</strong> ${data.distribuidora}`;
         }
 
         actualizarMapa();
         calcularComparativa();
       } catch (err) {
-        alert("No se pudo contactar con el backend. Verifica que el túnel esté activo y la VPN conectada.");
-        console.error("Error consultar-cups:", err);
+        sumDiv.innerHTML = '<span class="suministro sum-none">Error</span>';
+        alert("No se pudo contactar con el backend. Verifica túnel y VPN.");
+        console.error(err);
       }
     }
 
@@ -269,10 +268,9 @@
       const dir = document.getElementById("direccion").value.trim();
       const container = document.getElementById("mapContainer");
       if (dir.length > 5) {
-        const query = encodeURIComponent(dir);
-        container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${query}&t=&z=16&ie=UTF8&iwloc=&output=embed"></iframe>`;
+        container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${encodeURIComponent(dir)}&t=&z=16&ie=UTF8&iwloc=&output=embed"></iframe>`;
       } else {
-        container.innerHTML = `<p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa de Google Maps aparecerá aquí al obtener la dirección.</p>`;
+        container.innerHTML = `<p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa aparecerá aquí al obtener la dirección.</p>`;
       }
     }
 
@@ -288,17 +286,15 @@
       const potencia = parseFloat(document.getElementById("potencia").value) || 0;
       const tbody = document.querySelector("#tablaTarifas tbody");
       tbody.innerHTML = "";
-      const factorImpuestos = 1 + 0.21 + 0.0511;
+      const factor = 1 + 0.21 + 0.0511;
       TARIFAS.forEach(t => {
-        const conIva = t.sinIva * factorImpuestos;
-        const costeEnergia = consumo * conIva;
-        const costePotencia = potencia * 0.10 * 30;
-        const totalEstimado = costeEnergia + costePotencia;
+        const conIva = t.sinIva * factor;
+        const total = (consumo * conIva) + (potencia * 0.10 * 30);
         tbody.innerHTML += `<tr>
           <td><strong>${t.comp}</strong></td>
           <td>${t.sinIva.toFixed(4)} €/kWh</td>
           <td>${conIva.toFixed(4)} €/kWh</td>
-          <td><strong>${totalEstimado.toFixed(2)} €/mes</strong></td>
+          <td><strong>${total.toFixed(2)} €/mes</strong></td>
         </tr>`;
       });
     }
