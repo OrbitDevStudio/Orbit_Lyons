@@ -16,7 +16,8 @@
     label { font-weight: bold; display: block; margin-top: 10px; font-size: 13px; }
     input, button, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
     button { background-color: var(--secondary); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 12px; transition: background 0.2s; }
-    button:hover { background-color: var(--primary); }
+    button:hover:not(:disabled) { background-color: var(--primary); }
+    button:disabled { background-color: #adb5bd !important; cursor: not-allowed; opacity: 0.7; }
     .result { margin-top: 10px; padding: 10px; border-radius: 5px; font-size: 13px; font-weight: 600; }
     .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
@@ -82,7 +83,7 @@
       <input type="text" id="cups" placeholder="Ej: ES0031..." oninput="analizarCUPSLocal()">
       <div id="resCUPS" class="result info">Distribuidora según prefijo CUPS.</div>
 
-      <button onclick="consultarBonoSocialServidor()">🛡️ Verificar Bono Social en Energía XXI</button>
+      <button id="btnBono" onclick="consultarBonoSocialServidor()">🛡️ Verificar Bono Social en Energía XXI</button>
       <div id="resBono" class="result info">Estado de Bono Social no consultado.</div>
     </div>
 
@@ -90,7 +91,7 @@
       <h3>📍 Dirección del Suministro y Ubicación</h3>
       <div class="grid-2">
         <div>
-          <button onclick="obtenerDireccion()">📍 BUSCAR DIRECCIÓN Y SUMINISTROS</button>
+          <button id="btnDireccion" onclick="obtenerDireccion()">📍 BUSCAR DIRECCIÓN Y SUMINISTROS</button>
           <div id="resDireccion" class="result info">Sin consultar todavía.</div>
 
           <label for="direccion" style="margin-top:15px;">Dirección Encontrada:</label>
@@ -161,8 +162,23 @@
   </div>
 
   <script>
-    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
+    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE
     const BACKEND_URL = "https://pine-imports-licence-african.trycloudflare.com";
+
+    // 🔒 Estado del bloqueo de botones
+    let consultaEnCurso = false;
+
+    function bloquearBotones() {
+      consultaEnCurso = true;
+      document.getElementById("btnBono").disabled = true;
+      document.getElementById("btnDireccion").disabled = true;
+    }
+
+    function desbloquearBotones() {
+      consultaEnCurso = false;
+      document.getElementById("btnBono").disabled = false;
+      document.getElementById("btnDireccion").disabled = false;
+    }
 
     const BANCOS = {
       "0049": "Banco Santander", "0182": "BBVA", "2100": "CaixaBank",
@@ -284,11 +300,13 @@
     }
 
     async function consultarBonoSocialServidor() {
+      if (consultaEnCurso) return;
       const dni = document.getElementById("dni").value.trim();
       const cups = document.getElementById("cups").value.trim();
       const div = document.getElementById("resBono");
       if (!dni || !cups) { alert("Introduce el DNI y el CUPS antes de verificar."); return; }
 
+      bloquearBotones();
       div.className = "result info";
       div.innerHTML = "⏳ Verificando en Energía XXI... (puede tardar 30-60 segundos)";
 
@@ -323,13 +341,17 @@
           div.innerHTML = "❌ No se pudo conectar con el backend.";
         }
         console.error(err);
+      } finally {
+        desbloquearBotones();
       }
     }
 
     async function obtenerDireccion() {
+      if (consultaEnCurso) return;
       const cups = document.getElementById("cups").value.trim();
       if (!cups) { alert("Debes ingresar un código CUPS."); return; }
 
+      bloquearBotones();
       const resDiv = document.getElementById("resDireccion");
       const sumDiv = document.getElementById("suministros");
       resDiv.className = "result info";
@@ -386,6 +408,8 @@
           resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
         }
         console.error(err);
+      } finally {
+        desbloquearBotones();
       }
     }
 
@@ -433,9 +457,3 @@
           <td><strong>${total.toFixed(2)} €/mes</strong></td>
         </tr>`;
       });
-    }
-
-    calcularComparativa();
-  </script>
-</body>
-</html>
