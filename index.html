@@ -37,7 +37,6 @@
     .btn-naranja { background-color: #e76f51 !important; }
     .btn-naranja:hover { background-color: #c14a2f !important; }
 
-    /* --- Footer Dev Orbit Studio --- */
     .footer {
       position: fixed;
       bottom: 0;
@@ -53,14 +52,8 @@
       box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
       z-index: 999;
     }
-    .footer span {
-      color: #ffd166;
-      font-weight: bold;
-    }
-    .footer .logo {
-      font-size: 15px;
-      margin-right: 6px;
-    }
+    .footer span { color: #ffd166; font-weight: bold; }
+    .footer .logo { font-size: 15px; margin-right: 6px; }
   </style>
 </head>
 <body>
@@ -295,12 +288,17 @@
       div.className = "result info";
       div.innerHTML = "⏳ Verificando en Energía XXI... (puede tardar 30-60 segundos)";
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
+
       try {
         const res = await fetch(`${BACKEND_URL}/api/bono-social`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dni, cups })
+          body: JSON.stringify({ dni, cups }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -312,8 +310,14 @@
           div.innerHTML = `✅ <span class="badge badge-inactive">LIBRE</span> ${data.estadoText || "No posee Bono Social activo."}`;
         }
       } catch (err) {
-        div.className = "result error";
-        div.innerHTML = "❌ No se pudo conectar con el backend.";
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          div.className = "result error";
+          div.innerHTML = "❌ La consulta tardó más de 2 minutos. Inténtalo de nuevo.";
+        } else {
+          div.className = "result error";
+          div.innerHTML = "❌ No se pudo conectar con el backend.";
+        }
         console.error(err);
       }
     }
@@ -325,15 +329,20 @@
       const resDiv = document.getElementById("resDireccion");
       const sumDiv = document.getElementById("suministros");
       resDiv.className = "result info";
-      resDiv.innerHTML = "⏳ Consultando Naturgy... (30-40 segundos)";
+      resDiv.innerHTML = "⏳ Consultando Naturgy... (30-60 segundos)";
       sumDiv.innerHTML = '<span class="suministro sum-none">⏳ Consultando...</span>';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/consultar-direccion`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cups })
+          body: JSON.stringify({ cups }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!data.success) {
@@ -364,8 +373,14 @@
 
         actualizarMapa();
       } catch (err) {
-        resDiv.className = "result error";
-        resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          resDiv.className = "result error";
+          resDiv.innerHTML = "❌ La consulta tardó más de 2 minutos. Inténtalo de nuevo.";
+        } else {
+          resDiv.className = "result error";
+          resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
+        }
         console.error(err);
       }
     }
@@ -376,14 +391,19 @@
 
       const resDiv = document.getElementById("resConsumo");
       resDiv.className = "result info";
-      resDiv.innerHTML = "⏳ Consultando Pepeenergy... (40-60 segundos)";
+      resDiv.innerHTML = "⏳ Consultando Pepeenergy... (1-2 minutos, por favor espera)";
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 180000);
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/consultar-consumo`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cups })
+          body: JSON.stringify({ cups }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!data.success) {
@@ -407,8 +427,14 @@
 
         calcularComparativa();
       } catch (err) {
-        resDiv.className = "result error";
-        resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          resDiv.className = "result error";
+          resDiv.innerHTML = "❌ La consulta tardó más de 3 minutos. Inténtalo de nuevo.";
+        } else {
+          resDiv.className = "result error";
+          resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
+        }
         console.error(err);
       }
     }
@@ -436,30 +462,4 @@
       if (zona === "canarias") {
         factorImpuestos = 1 + 0.07;
         etiquetaImpuestos = "IGIC 7%";
-      } else if (zona === "ceuta_melilla") {
-        factorImpuestos = 1 + 0.04;
-        etiquetaImpuestos = "IPSI 4%";
-      } else {
-        factorImpuestos = 1 + 0.21 + 0.0511;
-        etiquetaImpuestos = "IVA 21% + IEE 5,11%";
-      }
-
-      const thImp = document.getElementById("thImpuestos");
-      if (thImp) thImp.textContent = `Precio kWh (${etiquetaImpuestos})`;
-
-      TARIFAS.forEach(t => {
-        const conIva = t.sinIva * factorImpuestos;
-        const total = (consumo * conIva) + (potencia * 0.10 * 30);
-        tbody.innerHTML += `<tr>
-          <td><strong>${t.comp}</strong></td>
-          <td>${t.sinIva.toFixed(4)} €/kWh</td>
-          <td>${conIva.toFixed(4)} €/kWh</td>
-          <td><strong>${total.toFixed(2)} €/mes</strong></td>
-        </tr>`;
-      });
-    }
-
-    calcularComparativa();
-  </script>
-</body>
-</html>
+      
