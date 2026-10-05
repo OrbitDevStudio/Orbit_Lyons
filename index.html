@@ -34,8 +34,9 @@
     .sum-luz { background: #f4a261; }
     .sum-gas { background: #e76f51; }
     .sum-none { background: #adb5bd; }
-    .btn-naranja { background-color: #e76f51 !important; }
+    .btn-naranja { background-color: #e76f51 !important; display: inline-block; text-decoration: none; text-align: center; color: white; padding: 10px; border-radius: 5px; margin-top: 12px; font-weight: bold; box-sizing: border-box; width: 100%; }
     .btn-naranja:hover { background-color: #c14a2f !important; }
+    .nota { font-size: 12px; color: #6c757d; margin-top: 10px; font-style: italic; }
 
     .footer {
       position: fixed;
@@ -109,9 +110,12 @@
     </div>
 
     <div class="card full-width">
-      <h3>📊 Potencia y Consumo (Pepeenergy)</h3>
-      <button onclick="obtenerConsumo()" class="btn-naranja">📊 CALCULAR POTENCIA Y CONSUMO</button>
-      <div id="resConsumo" class="result info">Sin consultar todavía.</div>
+      <h3>📊 Potencia y Consumo (Manual)</h3>
+
+      <a href="https://www.pepeenergy.com/calculadora-luz" target="_blank" class="btn-naranja">
+        🔗 ABRIR PEPEENERGY Y CONSULTAR MANUALMENTE
+      </a>
+      <p class="nota">👉 Introduce el CUPS en la página de Pepeenergy, copia el desglose y escribe abajo los valores de <strong>Potencia (kW)</strong> y <strong>Consumo (kWh)</strong>.</p>
 
       <div class="grid-2" style="margin-top:15px;">
         <div>
@@ -385,60 +389,6 @@
       }
     }
 
-    async function obtenerConsumo() {
-      const cups = document.getElementById("cups").value.trim();
-      if (!cups) { alert("Debes ingresar un código CUPS."); return; }
-
-      const resDiv = document.getElementById("resConsumo");
-      resDiv.className = "result info";
-      resDiv.innerHTML = "⏳ Consultando Pepeenergy... (1-2 minutos, por favor espera)";
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000);
-
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/consultar-consumo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cups }),
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!data.success) {
-          resDiv.className = "result error";
-          resDiv.innerHTML = "❌ " + (data.error || "Error desconocido.");
-          return;
-        }
-
-        let pot = data.potenciaP1;
-        let cons = data.consumoAnual;
-
-        if (pot && pot !== 'No disponible') {
-          document.getElementById("potencia").value = aNumero(pot, 4.60);
-        }
-        if (cons && cons !== 'No disponible') {
-          document.getElementById("consumo").value = Math.round(aNumero(cons, 0));
-        }
-
-        resDiv.className = "result success";
-        resDiv.innerHTML = `✅ Potencia: <strong>${pot} kW</strong> | Consumo: <strong>${cons} kWh</strong>`;
-
-        calcularComparativa();
-      } catch (err) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-          resDiv.className = "result error";
-          resDiv.innerHTML = "❌ La consulta tardó más de 3 minutos. Inténtalo de nuevo.";
-        } else {
-          resDiv.className = "result error";
-          resDiv.innerHTML = "❌ No se pudo contactar con el backend.";
-        }
-        console.error(err);
-      }
-    }
-
     function actualizarMapa() {
       const dir = document.getElementById("direccion").value.trim();
       const container = document.getElementById("mapContainer");
@@ -462,4 +412,30 @@
       if (zona === "canarias") {
         factorImpuestos = 1 + 0.07;
         etiquetaImpuestos = "IGIC 7%";
-      
+      } else if (zona === "ceuta_melilla") {
+        factorImpuestos = 1 + 0.04;
+        etiquetaImpuestos = "IPSI 4%";
+      } else {
+        factorImpuestos = 1 + 0.21 + 0.0511;
+        etiquetaImpuestos = "IVA 21% + IEE 5,11%";
+      }
+
+      const thImp = document.getElementById("thImpuestos");
+      if (thImp) thImp.textContent = `Precio kWh (${etiquetaImpuestos})`;
+
+      TARIFAS.forEach(t => {
+        const conIva = t.sinIva * factorImpuestos;
+        const total = (consumo * conIva) + (potencia * 0.10 * 30);
+        tbody.innerHTML += `<tr>
+          <td><strong>${t.comp}</strong></td>
+          <td>${t.sinIva.toFixed(4)} €/kWh</td>
+          <td>${conIva.toFixed(4)} €/kWh</td>
+          <td><strong>${total.toFixed(2)} €/mes</strong></td>
+        </tr>`;
+      });
+    }
+
+    calcularComparativa();
+  </script>
+</body>
+</html>
