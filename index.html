@@ -1,13 +1,12 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestor Unificado de Ventas - Luz y Gas España</title>
+  <title>Gestor Unificado de Ventas - Luz y Gas España | Dev Orbit Studio</title>
   <style>
     :root { --primary: #0d3b66; --secondary: #0077b6; --bg: #f4f7f6; --card-bg: #fff; --text: #2b2d42; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); padding-bottom: 80px; }
     .header { text-align: center; margin-bottom: 20px; }
     .header h1 { color: var(--primary); margin: 0; font-size: 26px; }
     .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
@@ -37,6 +36,31 @@
     .sum-none { background: #adb5bd; }
     .btn-naranja { background-color: #e76f51 !important; }
     .btn-naranja:hover { background-color: #c14a2f !important; }
+
+    /* --- Footer Dev Orbit Studio --- */
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(90deg, #0d3b66 0%, #0077b6 100%);
+      color: #ffffff;
+      text-align: center;
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+      z-index: 999;
+    }
+    .footer span {
+      color: #ffd166;
+      font-weight: bold;
+    }
+    .footer .logo {
+      font-size: 15px;
+      margin-right: 6px;
+    }
   </style>
 </head>
 <body>
@@ -75,10 +99,7 @@
           <button onclick="obtenerDireccion()">📍 BUSCAR DIRECCIÓN Y SUMINISTROS</button>
           <div id="resDireccion" class="result info">Sin consultar todavía.</div>
 
-          <label for="titularObtenido" style="margin-top:15px;">Nombre Titular:</label>
-          <input type="text" id="titularObtenido" readonly style="font-weight: bold; background: #e9ecef;">
-
-          <label for="direccion">Dirección Encontrada:</label>
+          <label for="direccion" style="margin-top:15px;">Dirección Encontrada:</label>
           <input type="text" id="direccion" placeholder="Se rellenará automáticamente..." onchange="actualizarMapa()">
 
           <label>Suministros detectados:</label>
@@ -137,10 +158,13 @@
 
   </div>
 
+  <div class="footer">
+    <span class="logo">⚡</span>
+    Desarrollado por <span>Dev Orbit Studio</span> &copy; 2026 - Todos los derechos reservados
+  </div>
+
   <script>
-    // =====================================================================
-    // URL DEL TÚNEL DE CLOUDFLARE (actualizada)
-    // =====================================================================
+    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
     const BACKEND_URL = "https://offer-pamela-chef-aurora.trycloudflare.com";
 
     const BANCOS = {
@@ -321,7 +345,6 @@
         resDiv.className = "result success";
         resDiv.innerHTML = "✅ Datos obtenidos de Naturgy.";
 
-        if (data.titular) document.getElementById("titularObtenido").value = data.titular;
         if (data.direccion && data.direccion !== 'No disponible') {
           document.getElementById("direccion").value = data.direccion;
         }
@@ -353,7 +376,7 @@
 
       const resDiv = document.getElementById("resConsumo");
       resDiv.className = "result info";
-      resDiv.innerHTML = "⏳ Consultando Pepeenergy... (40-50 segundos)";
+      resDiv.innerHTML = "⏳ Consultando Pepeenergy... (40-60 segundos)";
 
       try {
         const res = await fetch(`${BACKEND_URL}/api/consultar-consumo`, {
