@@ -13,6 +13,7 @@
     .full-width { grid-column: 1 / -1; }
     .card { background: var(--card-bg); padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.06); }
     h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; font-size: 17px; }
+    h4 { margin-top: 0; color: var(--primary); font-size: 14px; }
     label { font-weight: bold; display: block; margin-top: 10px; font-size: 13px; }
     input, button, select { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
     button { background-color: var(--secondary); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 12px; transition: background 0.2s; }
@@ -108,6 +109,20 @@
           </div>
         </div>
       </div>
+
+      <!-- MAPAS EXTRA (comida típica + lugar reconocido) -->
+      <div id="mapasExtras" style="display:none; margin-top:20px;">
+        <div class="grid-2">
+          <div>
+            <h4>🍽️ Comida típica de la zona</h4>
+            <iframe id="mapComida" style="height:220px; margin-top:5px;"></iframe>
+          </div>
+          <div>
+            <h4>🏛️ Lugar reconocido cerca</h4>
+            <iframe id="mapLugar" style="height:220px; margin-top:5px;"></iframe>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card full-width">
@@ -162,10 +177,9 @@
   </div>
 
   <script>
-    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE (actualizar cada vez que reinicies túnel)
+    // ⚠️ URL DEL TÚNEL DE CLOUDFLARE
     const BACKEND_URL = "https://pine-imports-licence-african.trycloudflare.com";
 
-    // 🔒 Estado del bloqueo de botones
     let consultaEnCurso = false;
 
     function bloquearBotones() {
@@ -416,10 +430,29 @@
     function actualizarMapa() {
       const dir = document.getElementById("direccion").value.trim();
       const container = document.getElementById("mapContainer");
+      const extras = document.getElementById("mapasExtras");
+
       if (dir.length > 5) {
-        container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${encodeURIComponent(dir)}&t=&z=16&ie=UTF8&iwloc=&output=embed"></iframe>`;
+        const q = encodeURIComponent(dir);
+
+        // Mapa principal con la dirección exacta
+        container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${q}&t=&z=16&ie=UTF8&iwloc=&output=embed"></iframe>`;
+
+        // Mostrar y cargar los mapas extras
+        extras.style.display = "block";
+
+        // 🍽️ Comida típica cerca de la dirección
+        document.getElementById("mapComida").src =
+          `https://maps.google.com/maps?q=comida+típica+restaurante+cerca+de+${q}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
+
+        // 🏛️ Lugar reconocido / turístico cerca
+        document.getElementById("mapLugar").src =
+          `https://maps.google.com/maps?q=lugares+turísticos+cerca+de+${q}&t=&z=14&ie=UTF8&iwloc=&output=embed`;
       } else {
         container.innerHTML = `<p style="text-align: center; color: #6c757d; margin-top: 40px;">El mapa aparecerá aquí al obtener la dirección.</p>`;
+        extras.style.display = "none";
+        document.getElementById("mapComida").src = "";
+        document.getElementById("mapLugar").src = "";
       }
     }
 
@@ -454,4 +487,12 @@
           <td><strong>${t.comp}</strong></td>
           <td>${t.sinIva.toFixed(4)} €/kWh</td>
           <td>${conIva.toFixed(4)} €/kWh</td>
-          <td><strong>${total.toFixed(2)} €/m
+          <td><strong>${total.toFixed(2)} €/mes</strong></td>
+        </tr>`;
+      });
+    }
+
+    calcularComparativa();
+  </script>
+</body>
+</html>
